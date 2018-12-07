@@ -1,11 +1,12 @@
 import sys
 from parser import Parser
 
-def main(forwarding, srcFile): # type: (bool, str) -> None
+
+def main(forwarding, srcFile):  # type: (bool, str) -> None
     with open(srcFile, 'r') as f:
         src = f.read()
     # Parse
-    parser = Parser(src)
+    nodes = [node for node in Parser(src)]
     # Run the thing
 
 

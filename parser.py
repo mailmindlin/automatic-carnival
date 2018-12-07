@@ -1,6 +1,7 @@
 import re
 from ir import MIPSInstruction, Node
 
+
 # TODO: scope?
 ARITH_INSTRUCTIONS = {MIPSInstruction.ADD, MIPSInstruction.AND, MIPSInstruction.OR, MIPSInstruction.SLT}
 IMMED_INSTRUCTIONS = {MIPSInstruction.ADDI, MIPSInstruction.ANDI, MIPSInstruction.ORI, MIPSInstruction.SLTI}
@@ -13,6 +14,7 @@ class ParseError(Exception):
 
 
 class Parser(object):
+    """ MIPS instruction parser """
     def __init__(self, src):  # type: (str) -> Any
         self.src = src
     
@@ -49,7 +51,7 @@ class Parser(object):
             return 0
         raise ValueError(f'Unknown register name: {name}')
     
-    def buildNode(self, match):
+    def buildNode(self, match):  # type: (re.Match) -> Node
         inst_name = match['inst']
         try:
             inst = MIPSInstruction[inst_name.upper()]
@@ -95,6 +97,6 @@ class Parser(object):
         else:
             raise ValueError(f'Unexpected instruction: {inst}')
 
-    def __iter__(self):
+    def __iter__(self):  # type: () -> Iterable[Node]
         for match in re.finditer(self.pattern, self.src):
             yield self.buildNode(match)

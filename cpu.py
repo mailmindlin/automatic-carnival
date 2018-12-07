@@ -11,12 +11,52 @@ class CPU(object):
         registers: Map[string, number]
         pipeStages: List[Bool]
         pipeline: List[
-                       List[Node, List[number]]
+                       List[Node, List[number], number]
                       ]
         instructions: List[Node]
         PC: number
         forwarding: bool
     """
+    def execute(self, instruction):
+        if instruction.isBranch:
+            if instruction.label == BEQ:
+                if instruction.rd == instruction.rs:
+                    return 1
+                return 0
+
+            if instruction.label == BNE:
+                if instruction.rd != instruction.rs:
+                    return 1
+                return 0
+
+        elif instruction.isArithmetic:
+            if instruction.label == ADD:
+                return instruction.rs + instruction.rt
+
+            if instruction.label == AND:
+                #is this bitwise AND in python??
+                return instruction.rs & instruction.rt
+
+            if instruction.label == OR:
+                #same as above
+                return instruction.rs | instruction.rt
+
+            if instruction.label == SLT:
+                return min([instruction.rs, instruction.rt])
+        else:
+            if instruction.label == ADDI:
+                return instruction.rs + instruction.immediate
+
+            if instruction.label == ANDI:
+                #is this bitwise AND in python??
+                return instruction.rs & instruction.immediate
+
+            if instruction.label == ORI:
+                #same as above
+                return instruction.rs | instruction.immediate
+
+            if instruction.label == SLTI:
+                return min([instruction.rs, instruction.immediate])
 
 
     def __init__(self, src):
@@ -43,11 +83,16 @@ class CPU(object):
                         instruction[1].append(newStage)
                         pipeStages[max(newStage)] = True
                         if newStage == ID:
-                        if newStage == EX && forwarding:
-                            execute(instruction[0])
-                            #store your output somewhere relevant
+                        if newStage == EX:
+                            instruction[2] = execute(instruction[0])
                             
                         if newStage == WB:
+                            if instruction[0].isBranch:
+                                #well fuck
 
+                            
+
+                            else:
+            yield #the CPU object??? is that how you do this
             PC+=1;
 

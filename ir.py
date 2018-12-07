@@ -42,6 +42,7 @@ class MIPSRegister(IntEnum):
 
 
 class MIPSInstruction(Enum):
+    NOP  = 0
     ADD  = 1
     AND  = 2
     OR   = 3

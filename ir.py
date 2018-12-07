@@ -94,7 +94,21 @@ class Node(object):
         self.immediate = immediate
         self.target = target
     
+    def _asText(self):
+        inst = self.inst
+        if inst == MIPSInstruction.NOP:
+            return 'nop'
+        elif inst.isArithmetic:
+            return f'{inst!s} {self.rd!s},{self.rs!s},{self.rt!s}'
+        elif inst.isImmediate:
+            return f'{inst!s} {self.rd!s},{self.rs!s},{self.immediate}'
+        elif inst.isBranch:
+            return f'{inst!s} {self.rs!s},{self.rt!s},{self.target}'
+        else:
+            raise ValueError(f'Unexpected instruction {inst}')
+    
     def __str__(self):
         """Reconstruct assembly text"""
-        # TODO: impl
-        raise NotImplementedError("Please finish")
+        if self.text is None:
+            self.text = self._asText()
+        return self.text

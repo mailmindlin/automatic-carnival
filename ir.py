@@ -38,6 +38,8 @@ class MIPSRegister(IntEnum):
     FP = 30
     RA = 31
 
+    PC = 64  # Cheeze PC
+
     def __str__(self) -> str:
         return '$' + self.name.lower()
 

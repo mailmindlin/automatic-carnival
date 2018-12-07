@@ -37,9 +37,8 @@ class MIPSRegister(IntEnum):
     FP = 30
     RA = 31
 
-    def __str__(self):
-        # TODO: finish
-        pass
+    def __str__(self):  # type: () -> str
+        return '$' + self.name.lower()
 
 
 class MIPSInstruction(Enum):

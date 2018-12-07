@@ -59,7 +59,7 @@ class Node(object):
     """
     MIPS instruction IR
     """
-    def __init__(self, *, text=None, label=None, inst, rd=None, rs, rt, immediate=None, target=None):
+    def __init__(self, *, text=None, label=None, inst, rd=None, rs, rt=None, immediate=None, target=None):
         """
         Parameters:
         text: str?
@@ -69,7 +69,7 @@ class Node(object):
         inst: MIPSInstruction
         rd: MIPSRegister?
         rs: MIPSRegister
-        rt: MIPSRegister
+        rt: MIPSRegister?
         immediate: int?
             Immediate value
         """

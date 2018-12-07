@@ -139,8 +139,8 @@ class Parser(object):
                 text=match['text'],
                 label=match['label'],
                 inst=inst,
-                rs=arg1,
-                rt=arg2,
+                rd=arg1,
+                rs=arg2,
                 immediate=immediate
             )
         elif inst in BRANCH_INSTRUCTIONS:

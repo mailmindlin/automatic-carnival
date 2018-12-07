@@ -1,4 +1,5 @@
 import re
+from typing import Match, Pattern, Iterable, Iterator
 from ir import MIPSInstruction, Node, MIPSRegister
 
 
@@ -7,7 +8,7 @@ class ParseError(Exception):
     pass
 
 
-class Parser(object):
+class Parser(Iterable[Node]):
     """ MIPS instruction parser """
 
     _REGISTER_LUT = {
@@ -59,11 +60,11 @@ class Parser(object):
         'bne': MIPSInstruction.BNE,
     }
 
-    def __init__(self, src):  # type: (str) -> None
+    def __init__(self, src: str):
         self.src = src
     
     @property
-    def pattern(self):
+    def pattern(self) -> Pattern:
         """
         Build parser pattern.
 
@@ -91,19 +92,19 @@ class Parser(object):
         immediate_pattern = '\\d+'
         return re.compile(f'^\\s*(?:(?P<label>{label_pattern}):)?\\s*(?P<text>(?P<inst>{inst_pattern})\\s+(?P<arg1>{reg_pattern})\\s*,\\s*(?P<arg2>{reg_pattern})\\s*,\\s*(?:(?P<arg3>{reg_pattern})|(?P<immediate>{immediate_pattern})|(?P<target>{label_pattern})))\\s*$', flags=re.MULTILINE)
 
-    def lookupRegister(self, name):  # type: (str) -> MIPSRegister
+    def lookupRegister(self, name: str) -> MIPSRegister:
         try:
             return Parser._REGISTER_LUT[name]
         except KeyError as e:
             raise ParseError(f"Unknown register: '{name}'") from e
     
-    def lookupInstruction(self, name) -> MIPSInstruction:  # type: (str) -> MIPSInstruction
+    def lookupInstruction(self, name: str) -> MIPSInstruction:
         try:
             return Parser._INSTRUCTION_LUT[name]
         except KeyError as e:
             raise ParseError(f"Unknown instruction: '{name}'") from e
     
-    def buildNode(self, match):  # type: (re.Match) -> Node
+    def buildNode(self, match: Match) -> Node:
         inst = self.lookupInstruction(match['inst'])
         
         # Args 1 & 2 are always registers
@@ -148,6 +149,6 @@ class Parser(object):
         else:
             raise ValueError(f'Unexpected instruction: {inst}')
 
-    def __iter__(self):  # type: () -> Iterable[Node]
+    def __iter__(self) -> Iterator[Node]:
         for match in re.finditer(self.pattern, self.src):
             yield self.buildNode(match)

@@ -1,6 +1,7 @@
 """Contains IR structures."""
 
 from enum import Enum, IntEnum
+from typing import Optional
 
 
 class MIPSRegister(IntEnum):
@@ -37,7 +38,7 @@ class MIPSRegister(IntEnum):
     FP = 30
     RA = 31
 
-    def __str__(self):  # type: () -> str
+    def __str__(self) -> str:
         return '$' + self.name.lower()
 
 
@@ -71,20 +72,18 @@ class Node(object):
     """
     MIPS instruction IR
     """
-    def __init__(self, *, text=None, label=None, inst, rd=None, rs, rt=None, immediate=None, target=None):
-        """
-        Parameters:
-        text: str?
-            Raw text
-        label: str?
-            Instruction label name
-        inst: MIPSInstruction
-        rd: MIPSRegister?
-        rs: MIPSRegister
-        rt: MIPSRegister?
-        immediate: int?
-            Immediate value
-        """
+    def __init__(
+            self,
+            *,
+            text: Optional[str] = None,
+            label: Optional[str] = None,
+            inst: MIPSInstruction,
+            rd: Optional[MIPSInstruction] = None,
+            rs: MIPSInstruction,
+            rt: Optional[MIPSInstruction] = None,
+            immediate: Optional[int] = None,
+            target: Optional[str] = None
+    ):
         self.text = text
         self.label = label
         self.inst = inst
@@ -94,7 +93,7 @@ class Node(object):
         self.immediate = immediate
         self.target = target
     
-    def _asText(self):
+    def _asText(self) -> str:
         inst = self.inst
         if inst == MIPSInstruction.NOP:
             return 'nop'

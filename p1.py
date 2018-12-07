@@ -1,5 +1,6 @@
 import sys
 import itertools
+from utils import grouped
 from ir import MIPSRegister
 from parser import Parser
 from cpu import CPU
@@ -8,27 +9,11 @@ from logger import Logger
 MAX_CYCLES = 16
 
 
-def grouped(n, iter):
-    done = False
-
-    def _slice():
-        nonlocal done
-        try:
-            for _ in range(n):
-                yield next(iter)
-        except StopIteration:
-            done = True
-            raise
-    
-    while not done:
-        yield _slice()
-
-
-def printState(cpu, logger):  # type: (CPU, Logger) -> None
+def printState(cpu: CPU, logger: Logger) -> None:
     """Print CPU state."""
     print('-' * 82)
-    print(f"CPU Cycles ===>	{'   '.join(str(i) for i in range(1, MAX_CYCLES + 1))}")
-    # TODO: print history
+    
+    logger.print()
 
     regs = map(
         MIPSRegister,
@@ -43,7 +28,7 @@ def printState(cpu, logger):  # type: (CPU, Logger) -> None
         print(*row, sep='\t\t')
 
 
-def main(forwarding, srcFile):  # type: (bool, str) -> None
+def main(forwarding: bool, srcFile: str) -> None:
     with open(srcFile, 'r') as f:
         src = f.read()
     # Parse

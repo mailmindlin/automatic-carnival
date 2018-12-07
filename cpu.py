@@ -15,6 +15,7 @@ class CPU(object):
                       ]
         instructions: List[Node]
         PC: number
+        forwarding: bool
     """
 
 
@@ -41,7 +42,12 @@ class CPU(object):
                         newStage = max(instruction[1])+1
                         instruction[1].append(newStage)
                         pipeStages[max(newStage)] = True
-                        #if after doing so 
-                        if 
+                        if newStage == ID:
+                        if newStage == EX && forwarding:
+                            execute(instruction[0])
+                            #store your output somewhere relevant
+                            
+                        if newStage == WB:
+
             PC+=1;
 

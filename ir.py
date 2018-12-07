@@ -53,6 +53,18 @@ class MIPSInstruction(Enum):
     ANDI = 8
     ORI  = 9
     SLTI = 10
+    
+    @property
+    def isArithmetic(self):
+        return self in (MIPSInstruction.ADD, MIPSInstruction.AND, MIPSInstruction.OR, MIPSInstruction.SLT)
+    
+    @property
+    def isImmediate(self):
+        return self in (MIPSInstruction.ADDI, MIPSInstruction.ANDI, MIPSInstruction.ORI, MIPSInstruction.SLTI)
+
+    @property
+    def isBranch(self):
+        return self in (MIPSInstruction.BEQ, MIPSInstruction.BNE)
 
 
 class Node(object):

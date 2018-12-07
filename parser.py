@@ -2,12 +2,6 @@ import re
 from ir import MIPSInstruction, Node, MIPSRegister
 
 
-# TODO: scope?
-ARITH_INSTRUCTIONS = {MIPSInstruction.ADD, MIPSInstruction.AND, MIPSInstruction.OR, MIPSInstruction.SLT}
-IMMED_INSTRUCTIONS = {MIPSInstruction.ADDI, MIPSInstruction.ANDI, MIPSInstruction.ORI, MIPSInstruction.SLTI}
-BRANCH_INSTRUCTIONS = {MIPSInstruction.BEQ, MIPSInstruction.BNE}
-
-
 class ParseError(Exception):
     """Custom exception for when parsing fails."""
     pass
@@ -103,23 +97,19 @@ class Parser(object):
         except KeyError as e:
             raise ParseError(f"Unknown register: '{name}'") from e
     
-    def lookupInstruction(self, name):  # type: (str) -> MIPSInstruction
+    def lookupInstruction(self, name) -> MIPSInstruction:  # type: (str) -> MIPSInstruction
         try:
             return Parser._INSTRUCTION_LUT[name]
         except KeyError as e:
             raise ParseError(f"Unknown instruction: '{name}'") from e
     
     def buildNode(self, match):  # type: (re.Match) -> Node
-        inst_name = match['inst']
-        try:
-            inst = MIPSInstruction[inst_name.upper()]
-        except KeyError as e:
-            raise ParseError(f"Unknown instruction '{inst_name}'") from e
+        inst = self.lookupInstruction(match['inst'])
         
         # Args 1 & 2 are always registers
         arg1 = self.lookupRegister(match['arg1'])
         arg2 = self.lookupRegister(match['arg2'])
-        if inst in ARITH_INSTRUCTIONS:
+        if inst.isArithmetic:
             arg3 = self.lookupRegister(match['arg3'])
             return Node(
                 text=match['text'],
@@ -129,7 +119,7 @@ class Parser(object):
                 rs=arg2,
                 rt=arg3
             )
-        elif inst in IMMED_INSTRUCTIONS:
+        elif inst.isImmediate:
             try:
                 immediate = int(match['immediate'])
             except ValueError as e:
@@ -143,7 +133,7 @@ class Parser(object):
                 rs=arg2,
                 immediate=immediate
             )
-        elif inst in BRANCH_INSTRUCTIONS:
+        elif inst.isBranch:
             target = match['target']
             if target is None:
                 raise ValueError("Missing target in instruction '{match['text']}'")

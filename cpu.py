@@ -145,11 +145,16 @@ class CPU(object):
         return IDContext(context, rsValue=rsValue, rtValue=rtValue)
     
     def _computeEx(self, inst: MIPSInstruction, rs: int, rt: int) -> int:
-        if inst == MIPSInstruction.ADD:
+        if inst in (MIPSInstruction.ADD, MIPSInstruction.ADDI):
             return rs + rt
+        elif inst in (MIPSInstruction.AND, MIPSInstruction.ANDI):
+            return rs & rt
+        elif inst in (MIPSInstruction.OR, MIPSInstruction.ORI):
+            return rs | rt
+        elif inst in (MIPSInstruction.SLT, MIPSInstruction.SLTI):
+            return 1 if (rs < rt) else 0
         else:
-            #TODO: finish
-            pass
+            raise ValueError("Unknown instruction")
     
     def _applyEX(self, context: IDContext) -> EXContext:
         # TODO: emulate EX stage
@@ -159,7 +164,7 @@ class CPU(object):
             pass
 
         result = self._computeEx(inst, context.rsValue, context.rtValue)
-        return EXContext(context, )
+        return EXContext(context, result)
     
     def _applyMEM(self, context: EXContext) -> MEMContext:
         return context

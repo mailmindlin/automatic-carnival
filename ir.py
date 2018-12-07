@@ -57,15 +57,21 @@ class MIPSInstruction(Enum):
     
     @property
     def isArithmetic(self):
+        """Predicate for if instruction matches form `INST rd,rs,rt`"""
         return self in (MIPSInstruction.ADD, MIPSInstruction.AND, MIPSInstruction.OR, MIPSInstruction.SLT)
     
     @property
     def isImmediate(self):
+        """Predicate for if instruction matches form `INST rd,rs,imm`"""
         return self in (MIPSInstruction.ADDI, MIPSInstruction.ANDI, MIPSInstruction.ORI, MIPSInstruction.SLTI)
 
     @property
     def isBranch(self):
+        """Predicate for if instruction matches form `INST rs,rt,target`"""
         return self in (MIPSInstruction.BEQ, MIPSInstruction.BNE)
+
+    def __str__(self):
+        return self.name.lower()
 
 
 class Node(object):
@@ -111,3 +117,22 @@ class Node(object):
         if self.text is None:
             self.text = self._asText()
         return self.text
+
+    def __repr__(self):
+        args = []
+        if self.text is not None:
+            args.append(f'text={self.text!r}')
+        if self.label is not None:
+            args.append(f'label={self.label!r}')
+        args.append(f'inst={self.inst!r}')
+        if self.rd is not None:
+            args.append(f'rd={self.rd!r}')
+        if self.rs is not None:
+            args.append(f'rs={self.rs!r}')
+        if self.rt is not None:
+            args.append(f'rt={self.rt!r}')
+        if self.immediate is not None:
+            args.append(f'immediate={self.immediate!r}')
+        if self.target is not None:
+            args.append(f'target={self.target!r}')
+        return f"Node({', '.join(args)})"

@@ -3,6 +3,10 @@ from typing import Dict, List, Optional, Tuple, Iterable
 from logger import LogEvent, PipelineStallEvent, PipelineExitEvent, StageAdvanceEvent, InstructionFetchEvent, ExId, EndOfCycleEvent
 
 
+#  dprint = print
+dprint = lambda _: None
+
+
 class PipelineContext(object):
     def __init__(self, exId: ExId, node: Node):
         self.exId = exId
@@ -25,6 +29,7 @@ class IDContext(PipelineContext):
     rsValue: int
     rtValue: int
     rdTarget: MIPSRegister
+    stalled: bool = False
 
     def __init__(self, source: IFContext, rsValue: int, rtValue: int, rdTarget: MIPSRegister):
         super().__init__(source.exId, source.node)
@@ -70,7 +75,6 @@ class CPU(object):
     
     currentCycle: int
     registers: Dict[MIPSRegister, int]
-    fwRegValues: Dict[MIPSRegister, int]
     registerContention: Dict[MIPSRegister, int]
     instructions: List[Node]
     nextExId: ExId
@@ -114,7 +118,7 @@ class CPU(object):
         result = 0
         for reg in regs:
             delay = self.registerContention.get(reg, 0) - self.currentCycle
-            print(f'Delay for {reg!r}: {delay}')
+            dprint(f'Delay for {reg!r}: {delay}')
             result = max(result, delay)
         return result
     
@@ -141,11 +145,11 @@ class CPU(object):
         context = self.pipeline_id
         if context is None:
             # ID empty
-            print("ID empty")
+            dprint("ID empty")
             return
         if self.pipeline_ex is not None:
             # ID blocked
-            print("ID blocked")
+            dprint("ID blocked")
             yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
             return
         
@@ -153,24 +157,10 @@ class CPU(object):
         inst = node.inst
 
         # Acquire & read input registers
-        rsValue = None
-        rtValue = None
-        in_registers = tuple()
-        if inst.isArithmetic or inst.isBranch:
-            # Block for rs, rt
-            in_registers = (node.rs, node.rt)
-            rsValue = self.registers.setdefault(node.rs, 0)
-            rtValue = self.registers.setdefault(node.rt, 0)
-        elif inst.isImmediate:
-            # Block for rs
-            in_registers = (node.rs,)
-            rsValue = self.registers.setdefault(node.rs, 0)
-            rtValue = node.immediate
-        
-        delay = self._registerDelay(*in_registers)
-        if delay > 0:
+        delay, rsValue, rtValue = self._getExInputs(node)
+        if delay > 0 and False:
             # Blocked on input registers
-            print(f"ID stall: regs {in_registers}")
+            dprint(f"ID stall: regs")
             yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', delay)
             return
         
@@ -178,7 +168,7 @@ class CPU(object):
         if inst.isArithmetic or inst.isImmediate:
             # Acquire rd
             release = self.currentCycle + 3
-            print(f'Lock register {node.rd!r} until cycle {release}')
+            dprint(f'Lock register {node.rd!r} until cycle {release}')
             self.registerContention[node.rd] = max(self.registerContention.get(node.rd, 0), release)
             #TODO: multiple locks?
             rdTarget = node.rd
@@ -186,10 +176,43 @@ class CPU(object):
             rdTarget = MIPSRegister.PC
         
         # Complete ID
-        print("ADVANCE ID")
+        dprint("ADVANCE ID")
         yield StageAdvanceEvent(context.exId, self.currentCycle, "ID")
         self.pipeline_id = None
         self.pipeline_ex = IDContext(context, rsValue=rsValue, rtValue=rtValue, rdTarget=rdTarget)
+    
+    def _getExRegister(self, reg: MIPSRegister) -> Tuple[int, int]:
+        delay = self.registerContention.get(reg, 0) - self.currentCycle
+        if delay <= 0:
+            return (0, self.registers.get(reg, 0))
+        if self.forwarding:
+            if (self.pipeline_mem is not None) and (self.pipeline_mem.rdTarget == reg):
+                return (0, self.pipeline_mem.rdValue)
+            if (self.pipeline_wb is not None) and (self.pipeline_wb.rdTarget == reg):
+                return (0, self.pipeline_wb.rdValue)
+        return (delay, None)
+    
+    def _getExInputs(self, node: Node) -> Tuple[int, int, int]:
+        """
+        Get EX inputs & delay
+        Returns:
+            delay (cycles)
+            rs value
+            rt value
+        """
+        inst = node.inst
+        if inst == MIPSInstruction.NOP:
+            return (0, None, None)
+        
+        rsDelay, rsValue = self._getExRegister(node.rs)
+        if inst.isImmediate:
+            return (rsDelay, rsValue, node.immediate)
+        
+        rtDelay, rtValue = self._getExRegister(node.rt)
+        return (min(rsDelay, rtDelay), rsValue, rtValue)
+    
+    def _acquireRegisterLock(self, reg: MIPSRegister, duration: int):
+        self.registerContention[reg] = max(self.registerContention.get(reg, 0), self.currentCycle + duration)
     
     def _computeEx(self, inst: MIPSInstruction, rs: int, rt: int) -> int:
         if inst in (MIPSInstruction.ADD, MIPSInstruction.ADDI):
@@ -207,38 +230,50 @@ class CPU(object):
         else:
             raise ValueError("Unknown instruction")
     
+    def _computeJumpTarget(self, target: str) -> int:
+        try:
+            return next(i for i, node in enumerate(self.instructions) if node.label == target)
+        except StopIteration:
+            raise RuntimeError(f'Unable to resolve label target: {target}')
+        
     def _applyEX(self) -> Iterable[LogEvent]:
         context = self.pipeline_ex
         if context is None:
             # EX empty
-            print("EX empty")
+            dprint("EX empty")
             return
+        
+        delay, rsValue, rtValue = self._getExInputs(context.node)
+        if delay > 0:
+            # ID block
+            print(f"Stalled in ex/id ({delay})")
+            if not context.stalled:
+                yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', delay)
+            else:
+                yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
+            context.stalled = True
+            return
+
         if self.pipeline_mem is not None:
             # EX blocked
-            print("EX blocked")
+            dprint("EX blocked")
             yield PipelineStallEvent(context.exId, self.currentCycle, 'EX', 0)
             return
         
         inst = context.node.inst
-        result = self._computeEx(inst, context.rsValue, context.rtValue)
+        result = self._computeEx(inst, rsValue, rtValue)
         rdTarget = context.rdTarget
 
         if inst.isBranch:
             if result != 0:
-                # Compute jump target
-                try:
-                    result = next(i for i, node in enumerate(self.instructions) if node.label == context.node.target)
-                except StopIteration:
-                    raise RuntimeError(f'Unable to resolve label target: {context.node.target}')
-                else:
-                    rdTarget = MIPSRegister.PC
+                result = self._computeJumpTarget(context.node.target)
+                rdTarget = MIPSRegister.PC
             else:
                 # Effectively a NOP from here on out
                 result = 0
                 rdTarget = MIPSRegister.ZERO
         
         # Complete EX
-        print("ADVANCE EX")
         yield StageAdvanceEvent(context.exId, self.currentCycle, "EX")
         self.pipeline_ex = None
         self.pipeline_mem = EXContext(context, result, rdTarget=rdTarget)
@@ -254,7 +289,7 @@ class CPU(object):
             return
 
         # Complete MEM
-        print(f"ADVANCE MEM on {context.exId}")
+        dprint(f"ADVANCE MEM on {context.exId}")
         yield StageAdvanceEvent(context.exId, self.currentCycle, "MEM")
         self.pipeline_mem = None
         self.pipeline_wb = context
@@ -289,7 +324,7 @@ class CPU(object):
         self.registers[rd] = context.rdValue
 
         # Complete WB
-        print(f"FINISH WB on {context.exId}")
+        dprint(f"FINISH WB on {context.exId}")
         self.pipeline_wb = None
         yield StageAdvanceEvent(context.exId, self.currentCycle, "WB")
         yield PipelineExitEvent(context.exId, self.currentCycle)

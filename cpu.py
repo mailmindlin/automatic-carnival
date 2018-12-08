@@ -272,9 +272,19 @@ class CPU(object):
         
         if (rd == MIPSRegister.PC) and (context.rdValue != self.pc):
             # Flush pipeline
-            #TODO: finish
+            if self.pipeline_mem is not None:
+                yield StageAdvanceEvent(self.pipeline_mem.exId, self.currentCycle, '*')
+                yield PipelineExitEvent(self.pipeline_mem.exId, self.currentCycle)
+                self.pipeline_mem = None
+            if self.pipeline_ex is not None:
+                yield StageAdvanceEvent(self.pipeline_ex.exId, self.currentCycle, '*')
+                yield PipelineExitEvent(self.pipeline_ex.exId, self.currentCycle)
+                self.pipeline_ex = None
+            if self.pipeline_id is not None:
+                yield StageAdvanceEvent(self.pipeline_id.exId, self.currentCycle, '*')
+                yield PipelineExitEvent(self.pipeline_id.exId, self.currentCycle)
+                self.pipeline_id = None
             print("NEED PIPELINE FLUSH")
-            pass
         
         self.registers[rd] = context.rdValue
 

@@ -43,7 +43,6 @@ def main(forwarding: bool, srcFile: str) -> None:
     i = 0
     while cpu.running and i < MAX_CYCLES:
         print('-' * 82)
-        print(f'PC = {cpu.pc}')
         for event in cpu.cycle():
             logger.update(event)
         printState(cpu, logger)

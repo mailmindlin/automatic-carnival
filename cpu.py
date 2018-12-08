@@ -114,14 +114,6 @@ class CPU(object):
             or (self.pipeline_mem is not None) \
             or (self.pipeline_wb is not None)
     
-    def _registerDelay(self, *regs: Tuple[MIPSRegister]) -> int:
-        result = 0
-        for reg in regs:
-            delay = self.registerContention.get(reg, 0) - self.currentCycle
-            dprint(f'Delay for {reg!r}: {delay}')
-            result = max(result, delay)
-        return result
-    
     def _fetchInstruction(self) -> Iterable[LogEvent]:
         if self.pipeline_id is not None:
             # IF blocked
@@ -167,10 +159,7 @@ class CPU(object):
         rdTarget = MIPSRegister.ZERO
         if inst.isArithmetic or inst.isImmediate:
             # Acquire rd
-            release = self.currentCycle + 3
-            dprint(f'Lock register {node.rd!r} until cycle {release}')
-            self.registerContention[node.rd] = max(self.registerContention.get(node.rd, 0), release)
-            #TODO: multiple locks?
+            # self._acquireRegisterLock(node.rd, 3)
             rdTarget = node.rd
         elif inst.isBranch:
             rdTarget = MIPSRegister.PC
@@ -182,21 +171,22 @@ class CPU(object):
         self.pipeline_ex = IDContext(context, rsValue=rsValue, rtValue=rtValue, rdTarget=rdTarget)
     
     def _getExRegister(self, reg: MIPSRegister) -> Tuple[int, int]:
-        delay = self.registerContention.get(reg, 0) - self.currentCycle
-        if delay <= 0:
-            return (0, self.registers.get(reg, 0))
+        available = self.registerContention.get(reg, 0)
+        value = self.registers.get(reg, 0)
+        if available <= self.currentCycle:
+            return (available, value)
         if self.forwarding:
             if (self.pipeline_mem is not None) and (self.pipeline_mem.rdTarget == reg):
-                return (0, self.pipeline_mem.rdValue)
+                return (self.currentCycle, self.pipeline_mem.rdValue)
             if (self.pipeline_wb is not None) and (self.pipeline_wb.rdTarget == reg):
-                return (0, self.pipeline_wb.rdValue)
-        return (delay, None)
+                return (self.currentCycle, self.pipeline_wb.rdValue)
+        return (available, value)
     
     def _getExInputs(self, node: Node) -> Tuple[int, int, int]:
         """
         Get EX inputs & delay
         Returns:
-            delay (cycles)
+            available (cycles)
             rs value
             rt value
         """
@@ -204,12 +194,12 @@ class CPU(object):
         if inst == MIPSInstruction.NOP:
             return (0, None, None)
         
-        rsDelay, rsValue = self._getExRegister(node.rs)
+        rsAvail, rsValue = self._getExRegister(node.rs)
         if inst.isImmediate:
-            return (rsDelay, rsValue, node.immediate)
+            return (rsAvail, rsValue, node.immediate)
         
-        rtDelay, rtValue = self._getExRegister(node.rt)
-        return (min(rsDelay, rtDelay), rsValue, rtValue)
+        rtAvail, rtValue = self._getExRegister(node.rt)
+        return (max(rsAvail, rtAvail), rsValue, rtValue)
     
     def _acquireRegisterLock(self, reg: MIPSRegister, duration: int):
         self.registerContention[reg] = max(self.registerContention.get(reg, 0), self.currentCycle + duration)
@@ -243,16 +233,22 @@ class CPU(object):
             dprint("EX empty")
             return
         
-        delay, rsValue, rtValue = self._getExInputs(context.node)
-        if delay > 0:
+        node = context.node
+        inst = node.inst
+        available, rsValue, rtValue = self._getExInputs(context.node)
+        now = self.currentCycle if self.forwarding else (self.currentCycle - 1)
+        if available > now:
             # ID block
-            print(f"Stalled in ex/id ({delay})")
             if not context.stalled:
-                yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', delay)
+                yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', available - now)
             else:
                 yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
             context.stalled = True
             return
+        
+        if inst.isArithmetic or inst.isImmediate:
+            # Acquire rd
+            self._acquireRegisterLock(node.rd, 2)
 
         if self.pipeline_mem is not None:
             # EX blocked
@@ -260,7 +256,6 @@ class CPU(object):
             yield PipelineStallEvent(context.exId, self.currentCycle, 'EX', 0)
             return
         
-        inst = context.node.inst
         result = self._computeEx(inst, rsValue, rtValue)
         rdTarget = context.rdTarget
 
@@ -319,7 +314,8 @@ class CPU(object):
                 yield StageAdvanceEvent(self.pipeline_id.exId, self.currentCycle, '*')
                 yield PipelineExitEvent(self.pipeline_id.exId, self.currentCycle)
                 self.pipeline_id = None
-            print("NEED PIPELINE FLUSH")
+            # Flush register locks
+            self.registerContention = dict()
         
         self.registers[rd] = context.rdValue
 

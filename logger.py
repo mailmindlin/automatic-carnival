@@ -103,7 +103,6 @@ class Logger(object):
 
     def update(self, event: LogEvent) -> None:
         """Apply effects of event."""
-        print(event)
         if isinstance(event, InstructionFetchEvent):
             entry = LogEntry(event.exId, event.node, event.cycle, self.cycles)
             entry.markCycle(event.cycle, 'IF')

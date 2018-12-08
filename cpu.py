@@ -148,8 +148,11 @@ class CPU(object):
         if inst.isArithmetic or inst.isImmediate:
             # Acquire rd
             #TODO
-            pass
-        return IDContext(context, rsValue=rsValue, rtValue=rtValue)
+            rdTarget = node.rd
+        elif inst.isBranch:
+            rdTarget = MIPSRegister.PC
+        
+        return IDContext(context, rsValue=rsValue, rtValue=rtValue, rdTarget=rdTarget)
     
     def _computeEx(self, inst: MIPSInstruction, rs: int, rt: int) -> int:
         if inst in (MIPSInstruction.ADD, MIPSInstruction.ADDI):
@@ -160,17 +163,30 @@ class CPU(object):
             return rs | rt
         elif inst in (MIPSInstruction.SLT, MIPSInstruction.SLTI):
             return 1 if (rs < rt) else 0
+        elif inst == MIPSInstruction.BEQ:
+            return 1 if (rs == rt) else 0
+        elif inst == MIPSInstruction.BNE:
+            return 1 if (rs != rt) else 0
         else:
             raise ValueError("Unknown instruction")
     
     def _applyEX(self, context: IDContext) -> EXContext:
         # TODO: emulate EX stage
         inst = context.node.inst
-        if inst.isBranch:
-            #TODO: special handling
-            pass
-
         result = self._computeEx(inst, context.rsValue, context.rtValue)
+
+        if inst.isBranch:
+            if result != 0:
+                # Compute jump target
+                try:
+                    target = next(i for i, node in enumerate(self.instructions) if node.label == context.node.target)
+                except StopIteration:
+                    raise RuntimeError(f'Unable to resolve label target: {context.node.target}')
+                return EXContext(context, target, MIPSRegister.PC)
+            else:
+                # Effectively a NOP from here on out
+                return EXContext(context, 0, MIPSRegister.ZERO)
+        
         return EXContext(context, result)
     
     def _applyMEM(self, context: EXContext) -> MEMContext:

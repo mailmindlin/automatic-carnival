@@ -8,6 +8,8 @@ dprint = lambda _: None
 
 
 class PipelineContext(object):
+    """Used for data stored in each stage of the pipeline."""
+
     def __init__(self, exId: ExId, node: Node):
         self.exId = exId
         self.node = node
@@ -18,10 +20,17 @@ IFContext = PipelineContext
 
 class IDContext(PipelineContext):
     """
-    Fields:
-        rdTarget
-            Register to write to
+    Used for data passed from ID -> EX.
+
+    Fields
+    ------
+    rdTarget: MIPSRegister
+        Register to write to
+    stalled: bool
+        Track if NOP's have already been generated for this stage
+    
     """
+
     rdTarget: MIPSRegister
     stalled: bool = False
 
@@ -32,16 +41,33 @@ class IDContext(PipelineContext):
 
 class EXContext(PipelineContext):
     """
-    Fields:
-        rdValue
-            Computed output value
-        rdTarget
-            Register to write to
+    Context passed from EX -> MEM -> WB.
+
+    Fields
+    ------
+    rdValue: int
+        Computed output value
+    rdTarget: MIPSRegister
+        Register to write to
     """
+
     rdValue: int
     rdTarget: MIPSRegister
 
     def __init__(self, source: IDContext, rdValue: int, rdTarget: Optional[MIPSRegister] = None):
+        """
+        Create EXContext.
+
+        Parameters
+        ----------
+        source: IDContext
+            Previous stage's context
+        rdValue: int
+            Computed rD value
+        rdTarget: MIPSRegister?
+            Override write target
+        
+        """
         super().__init__(source.exId, source.node)
         self.rdValue = rdValue
         self.rdTarget = rdTarget or source.rdTarget
@@ -52,22 +78,39 @@ MEMContext = EXContext
 
 class CPU(object):
     """
-    MIPS CPU emulator
+    MIPS CPU emulator.
 
-    Fields:
-        registers: Map[string, number]
-        pipeStages: List[Bool]
-        pipeline: List[
-                       List[Node, List[number]]
-                      ]
-        instructions: List[Node]
-        PC: number
-        forwarding: bool
+    Events are generated each cycle which can help diagram the state of the CPU.
+
+    Fields
+    ------
+    forwarding: bool
+        Whether or not to enable register forwarding
+    currentCycle: int
+        Current cycle number (starting at 0)
+    registers: Dict[MIPSRegister, int]
+        Register name->value lookup
+    registerAvailability: Dict[MIPSRegister, int]
+        LUT of when registers will become available again
+    instructions: List[Node]
+        Source instruction list
+    nextExId: ExId
+        Tracks next ExId to issue
+    pipeline_id: Optional[IFContext]
+        IF -> ID pipeline storage
+    pipeline_ex: Optional[IDContext]
+        ID -> EX pipeline storage
+    pipeline_mem: Optional[EXContext]
+        EX -> MEM pipeline storage
+    pipeline_wb: Optional[MEMContext]
+        MEM -> WB pipeline storage
+    
     """
     
+    forwarding: bool
     currentCycle: int
     registers: Dict[MIPSRegister, int]
-    registerContention: Dict[MIPSRegister, int]
+    registerAvailability: Dict[MIPSRegister, int]
     instructions: List[Node]
     nextExId: ExId
 
@@ -78,10 +121,21 @@ class CPU(object):
     pipeline_wb: Optional[MEMContext]
 
     def __init__(self, src: List[Node], forwarding: bool):
+        """
+        Construct CPU from source.
+
+        Parameters
+        ----------
+        src: List[Node]
+            Source nodes
+        forwarding: bool
+            Whether or not to enable register forwarding
+        
+        """
         self.instructions = src
         self.forwarding = forwarding
         self.registers = {}
-        self.registerContention = {}
+        self.registerAvailability = {}
         self.nextExId = 0
         self.currentCycle = 0
         self.pipeline_id = None
@@ -91,6 +145,7 @@ class CPU(object):
     
     @property
     def pc(self) -> int:
+        """Get program counter."""
         return self.registers.setdefault(MIPSRegister.PC, 0)
     
     @pc.setter
@@ -106,7 +161,8 @@ class CPU(object):
             or (self.pipeline_mem is not None) \
             or (self.pipeline_wb is not None)
     
-    def _fetchInstruction(self) -> Iterable[LogEvent]:
+    def _applyIF(self) -> Iterable[LogEvent]:
+        """Run the IF stage."""
         if self.pipeline_id is not None:
             # IF blocked
             return
@@ -156,6 +212,7 @@ class CPU(object):
     def _getExRegister(self, reg: MIPSRegister) -> Tuple[int, int]:
         """
         Get register value & cycle availability.
+
         This method is only guarunteed to return valid things for calls from the EX stage.
 
         Parameters
@@ -169,8 +226,9 @@ class CPU(object):
             First cycle the register is available
         int
             Register value
+        
         """
-        available = self.registerContention.get(reg, 0)
+        available = self.registerAvailability.get(reg, 0)
         value = self.registers.get(reg, 0)
         if available <= self.currentCycle:
             return (available, value)
@@ -183,17 +241,24 @@ class CPU(object):
     
     def _getExInputs(self, node: Node) -> Tuple[int, int, int]:
         """
-        Get EX inputs & availability
-        Parameters:
-        ----------
+        Get EX inputs & availability.
 
-        Returns:
+        This method is only guarunteed to return valid things for calls from the EX stage.
+
+        Parameters
+        ----------
+        node: Node
+            Source node
+        
+        Returns
+        -------
         int
-            First cycle that rs and rt are available
+            First cycle that rS and rT are available
         int
-            rs value
+            rS value
         int
-            rt value
+            rT value
+        
         """
         inst = node.inst
         if inst == MIPSInstruction.NOP:
@@ -207,34 +272,78 @@ class CPU(object):
         return (max(rsAvail, rtAvail), rsValue, rtValue)
     
     def _acquireRegisterLock(self, reg: MIPSRegister, duration: int):
+        """
+        Acquire lock on output register.
+
+        Parameters
+        ----------
+        reg: MIPSRegister
+            Register to lock
+        duration: int
+            Number of cycles to lock for (starting at 0 = currentCycle)
+        
+        """
         if reg in (MIPSRegister.ZERO, MIPSRegister.PC):
             # You can't acquire these
             return
-        self.registerContention[reg] = max(self.registerContention.get(reg, 0), self.currentCycle + duration)
+        releaseCycle = max(self.registerAvailability.get(reg, 0), self.currentCycle + duration)
+        self.registerAvailability[reg] = releaseCycle
     
-    def _computeEx(self, inst: MIPSInstruction, rs: int, rt: int) -> int:
+    def _computeEx(self, inst: MIPSInstruction, rS: int, rT: int) -> int:
+        """
+        Actually compute the result of EX.
+
+        Parameters
+        inst: MIPSInstruction
+            Instruction
+        rS: int
+            First parameter
+        rT: int
+            Second parameter
+        
+        Returns
+        -------
+        int
+            Computed result
+        
+        """
         if inst in (MIPSInstruction.ADD, MIPSInstruction.ADDI):
-            return rs + rt
+            return rS + rT
         elif inst in (MIPSInstruction.AND, MIPSInstruction.ANDI):
-            return rs & rt
+            return rS & rT
         elif inst in (MIPSInstruction.OR, MIPSInstruction.ORI):
-            return rs | rt
+            return rS | rT
         elif inst in (MIPSInstruction.SLT, MIPSInstruction.SLTI):
-            return 1 if (rs < rt) else 0
+            return 1 if (rS < rT) else 0
         elif inst == MIPSInstruction.BEQ:
-            return 1 if (rs == rt) else 0
+            return 1 if (rS == rT) else 0
         elif inst == MIPSInstruction.BNE:
-            return 1 if (rs != rt) else 0
+            return 1 if (rS != rT) else 0
         else:
             raise ValueError("Unknown instruction")
     
     def _computeJumpTarget(self, target: str) -> int:
+        """
+        Compute jump address with O(n) lookup.
+
+        Parameters
+        ---------
+        target: str
+            Target label
+        
+        Returns
+        -------
+        int
+            Address of labelled instruction
+        
+        """
         try:
             return next(i for i, node in enumerate(self.instructions) if node.label == target)
         except StopIteration:
             raise RuntimeError(f'Unable to resolve label target: {target}')
         
     def _applyEX(self) -> Iterable[LogEvent]:
+        """Apply EX stage, and get events."""
         context = self.pipeline_ex
         if context is None:
             # EX empty
@@ -282,6 +391,7 @@ class CPU(object):
         self.pipeline_mem = EXContext(context, result, rdTarget=rdTarget)
     
     def _applyMEM(self) -> Iterable[LogEvent]:
+        """Apply MEM stage, and get events."""
         context = self.pipeline_mem
         if context is None:
             # MEM empty
@@ -295,21 +405,18 @@ class CPU(object):
         dprint(f"ADVANCE MEM on {context.exId}")
         yield StageAdvanceEvent(context.exId, self.currentCycle, "MEM")
         self.pipeline_mem = None
-        self.pipeline_wb = context
+        self.pipeline_wb = context  # No changes here
     
     def _applyWB(self) -> Iterable[LogEvent]:
+        """Apply WB stage, and get events."""
         context = self.pipeline_wb
         if context is None:
             # WB empty
             return
         
         rd = context.rdTarget
-        if rd == MIPSRegister.ZERO:
-            # Fake-write to $zero
-            return True
-        
         if (rd == MIPSRegister.PC) and (context.rdValue != self.pc):
-            # Flush pipeline
+            # Flush pipeline if we're altering the PC
             if self.pipeline_mem is not None:
                 yield StageAdvanceEvent(self.pipeline_mem.exId, self.currentCycle, '*')
                 yield PipelineExitEvent(self.pipeline_mem.exId, self.currentCycle)
@@ -323,9 +430,10 @@ class CPU(object):
                 yield PipelineExitEvent(self.pipeline_id.exId, self.currentCycle)
                 self.pipeline_id = None
             # Flush register locks
-            self.registerContention = dict()
+            self.registerAvailability = dict()
         
-        self.registers[rd] = context.rdValue
+        if rd != MIPSRegister.ZERO:  # Don't actually write to $zero
+            self.registers[rd] = context.rdValue
 
         # Complete WB
         dprint(f"FINISH WB on {context.exId}")
@@ -339,7 +447,7 @@ class CPU(object):
         yield from self._applyMEM()
         yield from self._applyEX()
         yield from self._applyID()
-        yield from self._fetchInstruction()
+        yield from self._applyIF()
 
         yield EndOfCycleEvent(self.currentCycle)
 

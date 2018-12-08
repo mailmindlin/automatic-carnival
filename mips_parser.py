@@ -1,3 +1,4 @@
+"""MIPS Assembly parser faculties."""
 import re
 from typing import Match, Pattern, Iterable, Iterator
 from ir import MIPSInstruction, Node, MIPSRegister
@@ -5,11 +6,12 @@ from ir import MIPSInstruction, Node, MIPSRegister
 
 class ParseError(Exception):
     """Custom exception for when parsing fails."""
+
     pass
 
 
 class Parser(Iterable[Node]):
-    """ MIPS instruction parser """
+    """MIPS instruction parser."""
 
     _REGISTER_LUT = {
         '$0': MIPSRegister.ZERO,
@@ -66,8 +68,9 @@ class Parser(Iterable[Node]):
     @property
     def pattern(self) -> Pattern:
         """
-        Pattern provides the following named groups:
+        Build parser pattern.
 
+        Pattern provides the following named groups:
             text
                 Full (raw) text of instruction, not including the label
             label (optional)
@@ -106,6 +109,7 @@ class Parser(Iterable[Node]):
             raise ParseError(f"Unknown instruction: '{name}'") from e
     
     def buildNode(self, match: Match) -> Node:
+        """Build a node from a regex match."""
         inst = self.lookupInstruction(match['inst'])
         
         # Args 1 & 2 are always registers
@@ -151,5 +155,6 @@ class Parser(Iterable[Node]):
             raise ValueError(f'Unexpected instruction: {inst}')
 
     def __iter__(self) -> Iterator[Node]:
+        """Node iterator."""
         for match in re.finditer(self.pattern, self.src):
             yield self.buildNode(match)

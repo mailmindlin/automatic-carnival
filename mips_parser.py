@@ -67,7 +67,7 @@ class Parser(Iterable[Node]):
     def pattern(self) -> Pattern:
         """
         Pattern provides the following named groups:
-        
+
             text
                 Full (raw) text of instruction, not including the label
             label (optional)
@@ -106,7 +106,6 @@ class Parser(Iterable[Node]):
             raise ParseError(f"Unknown instruction: '{name}'") from e
     
     def buildNode(self, match: Match) -> Node:
-        #
         inst = self.lookupInstruction(match['inst'])
         
         # Args 1 & 2 are always registers

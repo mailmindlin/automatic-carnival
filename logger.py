@@ -32,6 +32,7 @@ class StageAdvanceEvent(LogEvent):
 
 
 class PipelineStallEvent(LogEvent):
+    """event generated when instruction stalls the pipeline"""
     def __init__(self, exId: ExId, cycle: int, stage: str, stalls: int):
         super().__init__(exId, cycle)
         self.stage = stage
@@ -42,11 +43,13 @@ class PipelineStallEvent(LogEvent):
 
 
 class PipelineExitEvent(LogEvent):
+    """event generated when instruction exits the pipeline"""
     def __init__(self, exId: ExId, cycle: int):
         super().__init__(exId, cycle)
 
 
 class EndOfCycleEvent(LogEvent):
+    """event generated at the end of each cycle"""
     def __init__(self, cycle):
         super().__init__(-1, cycle)
 

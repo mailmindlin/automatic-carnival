@@ -1,4 +1,5 @@
-from typing import List, Dict, NewType, Optional
+"""Helps with recording CPU events."""
+from typing import List, Set, Dict, NewType, Optional
 from ir import Node, MIPSInstruction
 
 ExId = NewType('ExId', int)
@@ -6,6 +7,7 @@ ExId = NewType('ExId', int)
 
 class LogEvent(object):
     """Base log event type."""
+
     def __init__(self, exId: ExId, cycle: int):
         self.exId = exId
         self.cycle = cycle
@@ -13,6 +15,7 @@ class LogEvent(object):
 
 class InstructionFetchEvent(LogEvent):
     """Event generated when instruction enters IF"""
+
     def __init__(self, exId: ExId, cycle: int, node: Node):
         super().__init__(exId, cycle)
         self.node = node
@@ -22,7 +25,8 @@ class InstructionFetchEvent(LogEvent):
 
 
 class StageAdvanceEvent(LogEvent):
-    """Event generated when instruction enters ID/"""
+    """Event generated when instruction enters a ID/EX/MEM/WB."""
+
     def __init__(self, exId: ExId, cycle: int, stage: str):
         super().__init__(exId, cycle)
         self.stage = stage
@@ -32,7 +36,12 @@ class StageAdvanceEvent(LogEvent):
 
 
 class PipelineStallEvent(LogEvent):
-    """event generated when instruction stalls the pipeline"""
+    """
+    Event generated when the pipeline stalls.
+
+    This event may cause nop instructions to be generated.
+    """
+
     def __init__(self, exId: ExId, cycle: int, stage: str, stalls: int):
         super().__init__(exId, cycle)
         self.stage = stage
@@ -43,21 +52,53 @@ class PipelineStallEvent(LogEvent):
 
 
 class PipelineExitEvent(LogEvent):
-    """event generated when instruction exits the pipeline"""
+    """For when an execution unit leaves the pipeline."""
+
     def __init__(self, exId: ExId, cycle: int):
         super().__init__(exId, cycle)
 
 
 class EndOfCycleEvent(LogEvent):
-    """event generated at the end of each cycle"""
-    def __init__(self, cycle):
-        super().__init__(-1, cycle)
+    """For when the cycle has been finished."""
+
+    def __init__(self, cycle: int):
+        super().__init__(None, cycle)
 
 
 class LogEntry(object):
+    """
+    An entry representing a single execution unit.
+
+    An execution unit (tracked by a single EXecution ID), is essentially a single time
+    an instruction is executed by the processor, throughout all pipeline stages. This
+    is necessarily a more restrictive definition than just an instruction, as the same
+    instruction may be executed multiple times, assuming for loops and whatnot.
+
+    Fields
+    ------
+    exId: ExId
+        Execution unit id
+    node: Node
+        Source node
+    startCycle: int
+        Cycle that the node started executing in
+    width: int
+        Generated table width (cycle-cells)
+    slots: List[str]
+        Current recorded events
+    _strcache: Optional[str]
+        Cache for __str__
+
+    """
+    exId: ExId
+    node: Node
+    startCycle: int
+    width: int
+    slots: List[str]
     _strcache: Optional[str]
 
     def __init__(self, exId: ExId, node: Node, startCycle: int, width: int):
+        """Create new entry for execution unit."""
         self.exId = exId
         self.node = node
         self.startCycle = startCycle
@@ -65,24 +106,50 @@ class LogEntry(object):
         self.slots = []
     
     def markCycle(self, cycle: int, name: str):
+        """Mark entry with a label."""
         offset = cycle - self.startCycle
-        # print(f'Mark cycle {cycle} ({self.startCycle} + {offset}) with {name}')
         if len(self.slots) <= offset:
             self.slots += [None] * (1 + len(self.slots) - offset)
         self.slots[offset] = name
 
     def __str__(self) -> str:
+        """Stringify entry, producing a table row."""
         if hasattr(self, '_strcache'):
             return self._strcache
-        result = f'{self.exId:<2}:{self.node!s:<20}'
+        result = f'{self.node!s:<20}'
         result += '.   ' * self.startCycle
         result += ''.join(f"{slot or '.':<4}" for slot in self.slots)
         result += '.   ' * (self.width - len(self.slots) - self.startCycle)
         return result
 
+
 class Logger(object):
-    #log the state of the CPU each cycle
+    """
+    Records events from CPU in a human-readable form.
+
+    Fields
+    ------
+    cycles: int
+        Number of cycles wide to print
+    history: List[LogEntry]
+        History of execution units
+    current: Dict[ExId, LogEntry]
+        Fast lookup for currently-being-modified entries
+    cycleMissed: Set[LogEntry]
+        Set of entries not modified the current cycle
+    fakeExId: ExId
+        Counter for nop inserts
+    
+    """
+
+    cycles: int
+    history: List[LogEntry]
+    current: Dict[ExId, LogEntry]
+    cycleMissed: Set[LogEntry]
+    fakeExId: ExId
+
     def __init__(self, cycles: int):
+        """Create logger of width."""
         self.cycles = cycles
         self.history: List[LogEntry] = []
         self.current: Dict[ExId, LogEntry] = {}
@@ -90,9 +157,15 @@ class Logger(object):
         self.fakeExId = -1
     
     def lookupIndex(self, entry: LogEntry) -> int:
+        """
+        Lookup index of `entry` in history.
+
+        Note that history may be modified (e.g., nop's are inserted).
+        """
         return len(self.history) - self.history[::-1].index(entry) - 1
     
     def insertNop(self, entry: LogEntry, count: int):
+        """Insert `count` nop instructions immediately before `entry`."""
         index = self.lookupIndex(entry)
         node = Node(text='nop', inst=MIPSInstruction.NOP, rs=None)
         nop_entry = LogEntry(self.fakeExId, node, entry.startCycle, self.cycles)
@@ -124,6 +197,7 @@ class Logger(object):
         elif isinstance(event, PipelineExitEvent):
             entry = self.current.pop(event.exId)
             self.cycleMissed.discard(entry)
+            entry._strcache = str(entry)
         elif isinstance(event, EndOfCycleEvent):
             # Fill asterisk for stages missed
             for entry in self.cycleMissed:
@@ -136,6 +210,7 @@ class Logger(object):
             raise ValueError("Unknown event type")
     
     def print(self) -> None:
+        """Print pipeline state & history to stdout."""
         print('CPU Cycles ===>     ' + ''.join(f'{i:<4}' for i in range(1, self.cycles + 1)))
         for entry in self.history:
             print(entry)

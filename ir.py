@@ -126,13 +126,13 @@ class Node(object):
             args.append(f'text={self.text!r}')
         if self.label is not None:
             args.append(f'label={self.label!r}')
-        args.append(f'inst={self.inst!r}')
+        args.append(f'inst={self.inst.name}')
         if self.rd is not None:
-            args.append(f'rd={self.rd!r}')
+            args.append(f'rd={self.rd.name}')
         if self.rs is not None:
-            args.append(f'rs={self.rs!r}')
+            args.append(f'rs={self.rs.name}')
         if self.rt is not None:
-            args.append(f'rt={self.rt!r}')
+            args.append(f'rt={self.rt.name}')
         if self.immediate is not None:
             args.append(f'immediate={self.immediate!r}')
         if self.target is not None:

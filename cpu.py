@@ -197,7 +197,13 @@ class CPU(object):
         if rd == MIPSRegister.ZERO:
             # Fake-write to $zero
             return True
-        #TODO: finish
+        
+        if (rd == MIPSRegister.PC) and (context.rdValue != self.pc):
+            # Flush pipeline
+            #TODO: finish
+            pass
+        
+        self.registers[rd] = context.rdValue
         return True
     
     def cycle(self) -> Iterable[LogEvent]:

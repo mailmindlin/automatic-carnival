@@ -245,7 +245,7 @@ class CPU(object):
         
         # ID Stage
         if self.pipeline_id is not None:
-            res = self._applyEX(self.pipeline_id) if self.pipeline_ex is None else None
+            res = self._applyID(self.pipeline_id) if self.pipeline_ex is None else None
             if res is not None:
                 self.pipeline_id = None
                 self.pipeline_ex = res

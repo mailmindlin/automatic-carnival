@@ -1,9 +1,11 @@
+"""Utility methods."""
 from typing import TypeVar, Iterable
 
 T = TypeVar('T')
 
 
 def grouped(n: int, iter: Iterable[T]) -> Iterable[Iterable[T]]:
+    """Group iterator into n-element chunks."""
     done = False
 
     def _slice():

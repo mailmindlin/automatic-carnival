@@ -1,5 +1,5 @@
 from typing import List, Dict, NewType, Optional
-from ir import Node
+from ir import Node, MIPSInstruction
 
 ExId = NewType('ExId', int)
 
@@ -26,8 +26,10 @@ class StageAdvanceEvent(LogEvent):
 
 
 class PipelineStallEvent(LogEvent):
-    def __init__(self, exId: ExId, cycle: int, stalls: int):
+    def __init__(self, exId: ExId, cycle: int, stage: str, stalls: int):
         super().__init__(exId, cycle)
+        self.stage = stage
+        self.stalls = stalls
 
 
 class PipelineExitEvent(LogEvent):
@@ -52,7 +54,7 @@ class LogEntry(object):
     
     def markCycle(self, cycle: int, name: str):
         offset = cycle - self.startCycle
-        if len(self.slots) <= offset + 1:
+        if len(self.slots) <= offset:
             self.slots += [None] * (1 + len(self.slots) - offset)
         self.slots[offset] = name
 
@@ -72,6 +74,10 @@ class Logger(object):
         self.history: List[LogEntry] = []
         self.current: Dict[ExId, LogEntry] = {}
         self.cycleMissed = set()
+        self.fakeExId = -1
+    
+    def lookupIndex(self, entry: LogEntry) -> int:
+        return len(self.history) - self.history[::-1].index(entry) - 1
 
     def update(self, event: LogEvent) -> None:
         """Apply effects of event."""
@@ -87,7 +93,17 @@ class Logger(object):
         elif isinstance(event, PipelineStallEvent):
             entry = self.current[event.exId]
             self.cycleMissed.discard(entry)
-            print("PIPELINE STALL")
+            entry.markCycle(event.cycle, event.stage)
+            if event.stalls > 0:
+                index = self.lookupIndex(entry)
+                node = Node(text='nop', inst=MIPSInstruction.NOP, rs=None)
+                nop_entry = LogEntry(self.fakeExId, node, entry.startCycle, self.cycles)
+                self.fakeExId -= 1
+                nop_entry.markCycle(entry.startCycle, "IF")
+                nop_entry.markCycle(entry.startCycle + 1, "ID")
+                for _ in range(event.stalls):
+                    self.history.insert(index, nop_entry)
+                self.current[nop_entry.exId] = nop_entry
         elif isinstance(event, PipelineExitEvent):
             entry = self.current.pop(event.exId)
             self.cycleMissed.discard(entry)

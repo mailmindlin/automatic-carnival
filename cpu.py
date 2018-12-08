@@ -3,10 +3,6 @@ from typing import Dict, List, Optional, Tuple, Iterable
 from logger import LogEvent, PipelineStallEvent, PipelineExitEvent, StageAdvanceEvent, InstructionFetchEvent, ExId, EndOfCycleEvent
 
 
-#  dprint = print
-dprint = lambda _: None
-
-
 class PipelineContext(object):
     """Used for data stored in each stage of the pipeline."""
 
@@ -186,11 +182,9 @@ class CPU(object):
         context = self.pipeline_id
         if context is None:
             # ID empty
-            dprint("ID empty")
             return
         if self.pipeline_ex is not None:
             # ID blocked
-            dprint("ID blocked")
             yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
             return
         
@@ -347,7 +341,6 @@ class CPU(object):
         context = self.pipeline_ex
         if context is None:
             # EX empty
-            dprint("EX empty")
             return
         
         node = context.node
@@ -365,7 +358,6 @@ class CPU(object):
 
         if self.pipeline_mem is not None:
             # EX blocked
-            dprint("EX blocked")
             yield PipelineStallEvent(context.exId, self.currentCycle, 'EX', 0)
             return
         
@@ -402,7 +394,6 @@ class CPU(object):
             return
 
         # Complete MEM
-        dprint(f"ADVANCE MEM on {context.exId}")
         yield StageAdvanceEvent(context.exId, self.currentCycle, "MEM")
         self.pipeline_mem = None
         self.pipeline_wb = context  # No changes here
@@ -436,7 +427,6 @@ class CPU(object):
             self.registers[rd] = context.rdValue
 
         # Complete WB
-        dprint(f"FINISH WB on {context.exId}")
         self.pipeline_wb = None
         yield StageAdvanceEvent(context.exId, self.currentCycle, "WB")
         yield PipelineExitEvent(context.exId, self.currentCycle)

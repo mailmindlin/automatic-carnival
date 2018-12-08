@@ -68,7 +68,7 @@ class CPU(object):
         forwarding: bool
     """
     
-    cycle: int
+    currentCycle: int
     registers: Dict[MIPSRegister, int]
     registerContention: Dict[MIPSRegister, int]
     instructions: List[Node]
@@ -85,7 +85,11 @@ class CPU(object):
         self.forwarding = forwarding
         self.registers = {}
         self.nextExId = 0
-        self.cycle = 0
+        self.currentCycle = 0
+        self.pipeline_id = None
+        self.pipeline_ex = None
+        self.pipeline_mem = None
+        self.pipeline_wb = None
     
     @property
     def pc(self) -> int:
@@ -181,7 +185,7 @@ class CPU(object):
         # WB Stage
         if self.pipeline_wb is not None:
             if self._applyWB(self.pipeline_wb):
-                yield PipelineExitEvent(self.pipeline_wb.exId, self.cycle)
+                # yield PipelineExitEvent(self.pipeline_wb.exId, self.currentCycle)
                 self.pipeline_wb = None
             else:
                 # Write failed
@@ -194,7 +198,7 @@ class CPU(object):
             if res is not None:
                 self.pipeline_mem = None
                 self.pipeline_wb = res
-                yield StageAdvanceEvent(res.exId, self.cycle, "MEM")
+                yield StageAdvanceEvent(res.exId, self.currentCycle, "MEM")
             else:
                 # Pipeline stall
                 #TODO
@@ -206,7 +210,7 @@ class CPU(object):
             if res is not None:
                 self.pipeline_ex = None
                 self.pipeline_mem = res
-                yield StageAdvanceEvent(res.exId, self.cycle, "EX")
+                yield StageAdvanceEvent(res.exId, self.currentCycle, "EX")
             else:
                 # Pipeline stall
                 #TODO
@@ -218,7 +222,7 @@ class CPU(object):
             if res is not None:
                 self.pipeline_id = None
                 self.pipeline_ex = res
-                yield StageAdvanceEvent(res.exId, self.cycle, "ID")
+                yield StageAdvanceEvent(res.exId, self.currentCycle, "ID")
             else:
                 # Pipeline stall
                 #TODO
@@ -229,6 +233,8 @@ class CPU(object):
             res = self._fetchInstruction()
             if res is not None:
                 self.pipeline_id = res
-                yield InstructionFetchEvent(res.exId, self.cycle, "IF")
+                yield InstructionFetchEvent(res.exId, self.currentCycle, "IF")
 
-        self.cycle += 1
+        yield EndOfCycleEvent(self.currentCycle)
+
+        self.currentCycle += 1

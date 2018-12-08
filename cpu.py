@@ -1,3 +1,4 @@
+"""Contains stuff to emulate a MIPS CPU with 5-stage pipeline."""
 from ir import MIPSInstruction, MIPSRegister, Node
 from typing import Dict, List, Optional, Tuple, Iterable
 from logger import LogEvent, PipelineStallEvent, PipelineExitEvent, StageAdvanceEvent, InstructionFetchEvent, ExId, EndOfCycleEvent
@@ -156,6 +157,10 @@ class CPU(object):
             or (self.pipeline_ex is not None) \
             or (self.pipeline_mem is not None) \
             or (self.pipeline_wb is not None)
+    
+    def register(self, reg: MIPSRegister) -> int:
+        """Lookup a register's value."""
+        return self.registers.setdefault(reg, 0)
     
     def _applyIF(self) -> Iterable[LogEvent]:
         """Run the IF stage."""

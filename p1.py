@@ -16,6 +16,7 @@ def printState(cpu: CPU, logger: Logger) -> None:
 
     print()
 
+    # Print table of selected registers
     regs = map(
         MIPSRegister,
         itertools.chain(
@@ -24,7 +25,7 @@ def printState(cpu: CPU, logger: Logger) -> None:
             range(MIPSRegister.T8, MIPSRegister.T9 + 1),
         )
     )
-    cells = map(lambda reg: f'{reg!s} = {cpu.registers.get(reg, 0)}', regs)
+    cells = map(lambda reg: f'{reg!s} = {cpu.register(reg)}', regs)
     for row in grouped(4, cells):
         print(''.join(f'{cell:<20}' for cell in row))
 

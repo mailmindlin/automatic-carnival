@@ -84,6 +84,7 @@ class CPU(object):
         self.instructions = src
         self.forwarding = forwarding
         self.registers = {}
+        self.registerContention = {}
         self.nextExId = 0
         self.currentCycle = 0
         self.pipeline_id = None
@@ -109,7 +110,7 @@ class CPU(object):
             or (self.pipeline_wb is not None)
     
     def _registerDelay(self, *regs: Tuple[MIPSRegister]) -> int:
-        return max(0, *regs, key=lambda reg: self.registerContention[reg] - self.cycle)
+        return max(regs, key=lambda reg: max(0, (self.registerContention.get(reg, 0) - self.currentCycle)))
     
     def _fetchInstruction(self) -> Optional[IFContext]:
         pc = self.pc
@@ -141,6 +142,7 @@ class CPU(object):
             if self._registerDelay(node.rs) > 0:
                 #TODO: generate n-nop event
                 return None
+            rsValue = self.registers.setdefault(node.rs, 0)
             rtValue = node.immediate
             pass
         

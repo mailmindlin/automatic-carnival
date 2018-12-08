@@ -1,6 +1,6 @@
 from ir import MIPSInstruction, MIPSRegister, Node
 from typing import Dict, List, Optional, Tuple, Iterable
-from logger import LogEvent, PipelineExitEvent, PipelineStallEvent, StageAdvanceEvent, InstructionFetchEvent, ExId
+from logger import LogEvent, PipelineStallEvent, StageAdvanceEvent, InstructionFetchEvent, ExId, EndOfCycleEvent
 
 
 class PipelineContext(object):
@@ -27,7 +27,7 @@ class IDContext(PipelineContext):
     rdTarget: MIPSRegister
 
     def __init__(self, source: IFContext, rsValue: int, rtValue: int, rdTarget: MIPSRegister):
-        return super().__init__(source.exId, source.node)
+        super().__init__(source.exId, source.node)
         self.rsValue = rsValue
         self.rtValue = rtValue
         self.rdTarget = rdTarget
@@ -45,7 +45,7 @@ class EXContext(PipelineContext):
     rdTarget: MIPSRegister
 
     def __init__(self, source: IDContext, rdValue: int, rdTarget: Optional[MIPSRegister] = None):
-        return super().__init__(source.exId, source.node)
+        super().__init__(source.exId, source.node)
         self.rdValue = rdValue
         self.rdTarget = rdTarget or source.rdTarget
 

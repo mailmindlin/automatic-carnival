@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class MIPSRegister(IntEnum):
+    #enumerate registers
     ZERO = 0
     AT = 1
     V0 = 2
@@ -38,13 +39,14 @@ class MIPSRegister(IntEnum):
     FP = 30
     RA = 31
 
-    PC = 64  # Cheeze PC
+    PC = 64
 
     def __str__(self) -> str:
+        #return mapped string
         return '$' + self.name.lower()
 
-
 class MIPSInstruction(Enum):
+    #enumerate instructions
     NOP  = 0
     ADD  = 1
     AND  = 2
@@ -73,12 +75,28 @@ class MIPSInstruction(Enum):
         return self in (MIPSInstruction.BEQ, MIPSInstruction.BNE)
 
     def __str__(self):
+        #return mapped string
         return self.name.lower()
-
 
 class Node(object):
     """
-    MIPS instruction IR
+    MIPS instruction container class
+        text
+            Full (raw) text of instruction, not including the label
+        label (optional)
+            Label attached to instruction
+        inst
+            Text of instruction
+        arg1
+            First argument register
+        arg2
+            Second argument register
+        arg3 (optional)
+            Third argument register
+        immediate (optional)
+            Immediate value
+        target (optional)
+            Jump target label
     """
     def __init__(
             self,
@@ -102,6 +120,7 @@ class Node(object):
         self.target = target
     
     def _asText(self) -> str:
+        #return instruction as a string (formatted for output)
         inst = self.inst
         if inst == MIPSInstruction.NOP:
             return 'nop'
@@ -113,14 +132,15 @@ class Node(object):
             return f'{inst!s} {self.rs!s},{self.rt!s},{self.target}'
         else:
             raise ValueError(f'Unexpected instruction {inst}')
-    
+
     def __str__(self):
-        """Reconstruct assembly text"""
+        #formatted string representation
         if self.text is None:
             self.text = self._asText()
         return self.text
 
     def __repr__(self):
+        #unformatted string representation
         args = []
         if self.text is not None:
             args.append(f'text={self.text!r}')

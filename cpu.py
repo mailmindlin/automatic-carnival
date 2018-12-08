@@ -212,7 +212,8 @@ class CPU(object):
         # WB Stage
         if self.pipeline_wb is not None:
             if self._applyWB(self.pipeline_wb):
-                # yield PipelineExitEvent(self.pipeline_wb.exId, self.currentCycle)
+                yield StageAdvanceEvent(self.pipeline_wb.exId, self.currentCycle, "WB")
+                yield PipelineExitEvent(self.pipeline_wb.exId, self.currentCycle)
                 self.pipeline_wb = None
             else:
                 # Write failed

@@ -30,6 +30,11 @@ class PipelineStallEvent(LogEvent):
         super().__init__(exId, cycle)
 
 
+class PipelineExitEvent(LogEvent):
+    def __init__(self, exId: ExId, cycle: int):
+        super().__init__(exId, cycle)
+
+
 class EndOfCycleEvent(LogEvent):
     def __init__(self, cycle):
         super().__init__(-1, cycle)
@@ -83,6 +88,9 @@ class Logger(object):
             entry = self.current[event.exId]
             self.cycleMissed.discard(entry)
             print("PIPELINE STALL")
+        elif isinstance(event, PipelineExitEvent):
+            entry = self.current.pop(event.exId)
+            self.cycleMissed.discard(entry)
         elif isinstance(event, EndOfCycleEvent):
             # Fill asterisk for stages missed
             for entry in self.cycleMissed:

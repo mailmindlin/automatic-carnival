@@ -415,15 +415,12 @@ class CPU(object):
             # Flush pipeline if we're altering the PC
             if self.pipeline_mem is not None:
                 yield StageAdvanceEvent(self.pipeline_mem.exId, self.currentCycle, '*')
-                yield PipelineExitEvent(self.pipeline_mem.exId, self.currentCycle)
                 self.pipeline_mem = None
             if self.pipeline_ex is not None:
                 yield StageAdvanceEvent(self.pipeline_ex.exId, self.currentCycle, '*')
-                yield PipelineExitEvent(self.pipeline_ex.exId, self.currentCycle)
                 self.pipeline_ex = None
             if self.pipeline_id is not None:
                 yield StageAdvanceEvent(self.pipeline_id.exId, self.currentCycle, '*')
-                yield PipelineExitEvent(self.pipeline_id.exId, self.currentCycle)
                 self.pipeline_id = None
             # Flush register locks
             self.registerAvailability = dict()

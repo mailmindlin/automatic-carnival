@@ -39,9 +39,9 @@ def main(forwarding: bool, srcFile: str) -> None:
     # Run the thing
     cpu = CPU(nodes, forwarding=forwarding)
     logger = Logger(MAX_CYCLES)
-    i = 0
     print(f"START OF SIMULATION ({'forwarding' if forwarding else 'no forwarding'})")
-    while cpu.running and i < 16:
+    i = 0
+    while cpu.running and i < MAX_CYCLES:
         print('-' * 82)
         print(f'PC = {cpu.pc}')
         for event in cpu.cycle():

@@ -111,6 +111,10 @@ class LogEntry(object):
         if len(self.slots) <= offset:
             self.slots += [None] * (1 + len(self.slots) - offset)
         self.slots[offset] = name
+    
+    def bake(self):
+        """Cache __str__ result."""
+        self._strcache = str(self)
 
     def __str__(self) -> str:
         """Stringify entry, producing a table row."""
@@ -197,12 +201,13 @@ class Logger(object):
         elif isinstance(event, PipelineExitEvent):
             entry = self.current.pop(event.exId)
             self.cycleMissed.discard(entry)
-            entry._strcache = str(entry)
+            entry.bake()
         elif isinstance(event, EndOfCycleEvent):
             # Fill asterisk for stages missed
             for entry in self.cycleMissed:
-                if entry.node.inst != MIPSInstruction.NOP or entry.startCycle <= event.cycle - 4:
+                if entry.startCycle <= event.cycle - 4:
                     self.current.pop(entry.exId)
+                    entry.bake()
                 print(f'mark entry {entry.exId}')
                 entry.markCycle(event.cycle, '*')
             self.cycleMissed = set(self.current.values())

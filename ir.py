@@ -81,6 +81,22 @@ class MIPSInstruction(Enum):
 class Node(object):
     """
     MIPS instruction container class
+        text
+            Full (raw) text of instruction, not including the label
+        label (optional)
+            Label attached to instruction
+        inst
+            Text of instruction
+        arg1
+            First argument register
+        arg2
+            Second argument register
+        arg3 (optional)
+            Third argument register
+        immediate (optional)
+            Immediate value
+        target (optional)
+            Jump target label
     """
     def __init__(
             self,

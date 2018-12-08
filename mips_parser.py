@@ -66,9 +66,8 @@ class Parser(Iterable[Node]):
     @property
     def pattern(self) -> Pattern:
         """
-        Build parser pattern.
-
         Pattern provides the following named groups:
+        
             text
                 Full (raw) text of instruction, not including the label
             label (optional)
@@ -93,18 +92,21 @@ class Parser(Iterable[Node]):
         return re.compile(f'^\\s*(?:(?P<label>{label_pattern}):)?\\s*(?P<text>(?P<inst>{inst_pattern})\\s+(?P<arg1>{reg_pattern})\\s*,\\s*(?P<arg2>{reg_pattern})\\s*,\\s*(?:(?P<arg3>{reg_pattern})|(?P<immediate>{immediate_pattern})|(?P<target>{label_pattern})))\\s*$', flags=re.MULTILINE)
 
     def lookupRegister(self, name: str) -> MIPSRegister:
+        #return a register name's enumerated value
         try:
             return Parser._REGISTER_LUT[name]
         except KeyError as e:
             raise ParseError(f"Unknown register: '{name}'") from e
     
     def lookupInstruction(self, name: str) -> MIPSInstruction:
+        #return an instruction name's enumerated value
         try:
             return Parser._INSTRUCTION_LUT[name]
         except KeyError as e:
             raise ParseError(f"Unknown instruction: '{name}'") from e
     
     def buildNode(self, match: Match) -> Node:
+        #
         inst = self.lookupInstruction(match['inst'])
         
         # Args 1 & 2 are always registers

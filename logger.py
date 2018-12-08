@@ -20,8 +20,9 @@ class InstructionFetchEvent(LogEvent):
 
 class StageAdvanceEvent(LogEvent):
     """Event generated when instruction enters ID/"""
-    def __init__(self, exId: ExId, cycle: int, stage):
+    def __init__(self, exId: ExId, cycle: int, stage: str):
         super().__init__(exId, cycle)
+        self.stage = stage
 
 
 class PipelineStallEvent(LogEvent):
@@ -29,9 +30,9 @@ class PipelineStallEvent(LogEvent):
         super().__init__(exId, cycle)
 
 
-class PipelineExitEvent(LogEvent):
-    def __init__(self, exId: ExId, cycle: int):
-        super().__init__(exId, cycle)
+class EndOfCycleEvent(LogEvent):
+    def __init__(self, cycle):
+        super().__init__(-1, cycle)
 
 
 class LogEntry(object):

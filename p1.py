@@ -15,6 +15,8 @@ def printState(cpu: CPU, logger: Logger) -> None:
     
     logger.print()
 
+    print()
+
     regs = map(
         MIPSRegister,
         itertools.chain(

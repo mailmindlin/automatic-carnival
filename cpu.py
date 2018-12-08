@@ -126,22 +126,25 @@ class CPU(object):
     def _applyID(self, context: IFContext) -> Optional[IDContext]:
         node = context.node
         inst = node.inst
-        if inst == MIPSInstruction.NOP:
-            # No blocking
-            return IDContext(context, rsValue=None, rtValue=None)
-        
+
         rsValue = None
         rtValue = None
         if inst.isArithmetic or inst.isBranch:
             # Block for rs, rt
-            #TODO
-            pass
+            if self._registerDelay(node.rs, node.rt) > 0:
+                #TODO: generate n-nop event
+                return None
+            rsValue = self.registers.setdefault(node.rs, 0)
+            rtValue = self.registers.setdefault(node.rt, 0)
         elif inst.isImmediate:
             # Block for rs
-            #TODO
+            if self._registerDelay(node.rs) > 0:
+                #TODO: generate n-nop event
+                return None
             rtValue = node.immediate
             pass
         
+        rdTarget = MIPSRegister.ZERO
         if inst.isArithmetic or inst.isImmediate:
             # Acquire rd
             #TODO

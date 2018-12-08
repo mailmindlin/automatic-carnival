@@ -93,7 +93,7 @@ class CPU(object):
     
     @property
     def pc(self) -> int:
-        return self.registers.setdefault(MIPSRegister.PC, default=0)
+        return self.registers.setdefault(MIPSRegister.PC, 0)
     
     @pc.setter
     def pc(self, value: int):

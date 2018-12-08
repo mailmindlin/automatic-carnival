@@ -2,7 +2,7 @@ import sys
 import itertools
 from utils import grouped
 from ir import MIPSRegister
-from parser import Parser
+from mips_parser import Parser
 from cpu import CPU
 from logger import Logger
 

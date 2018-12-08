@@ -11,8 +11,7 @@ MAX_CYCLES = 16
 
 def printState(cpu: CPU, logger: Logger) -> None:
     """Print CPU state."""
-    print('-' * 82)
-    
+
     logger.print()
 
     print()
@@ -35,14 +34,19 @@ def main(forwarding: bool, srcFile: str) -> None:
         src = f.read()
     # Parse
     nodes = [node for node in Parser(src)]
+    print(nodes)
     # Run the thing
     cpu = CPU(nodes, forwarding=forwarding)
-    logger = Logger()
-    print(f"START OF SIMULATION ({'forwarding' if forwarding else 'no forwarding'}")
-    while True:  # cpu.running:
-        # for event in cpu.cycle():
-        #     logger.update(event)
+    logger = Logger(MAX_CYCLES)
+    i = 0
+    print(f"START OF SIMULATION ({'forwarding' if forwarding else 'no forwarding'})")
+    while cpu.running and i < 16:
+        print('-' * 82)
+        print(f'PC = {cpu.pc}')
+        for event in cpu.cycle():
+            logger.update(event)
         printState(cpu, logger)
+        i += 1
 
 
 if __name__ == '__main__':

@@ -258,7 +258,7 @@ class CPU(object):
             res = self._fetchInstruction()
             if res is not None:
                 self.pipeline_id = res
-                yield InstructionFetchEvent(res.exId, self.currentCycle, "IF")
+                yield InstructionFetchEvent(res.exId, self.currentCycle, res.node)
 
         yield EndOfCycleEvent(self.currentCycle)
 

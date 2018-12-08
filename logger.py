@@ -47,8 +47,8 @@ class LogEntry(object):
     
     def markCycle(self, cycle: int, name: str):
         offset = cycle - self.startCycle
-        if len(self.slots) < offset:
-            self.slots += [None] * (len(self.slots) - offset - 1)
+        if len(self.slots) <= offset + 1:
+            self.slots += [None] * (1 + len(self.slots) - offset)
         self.slots[offset] = name
 
     def __str__(self) -> str:
@@ -94,6 +94,6 @@ class Logger(object):
             raise ValueError("Unknown event type")
     
     def print(self) -> None:
-        print('CPU Cycles ===>\t' + ' '.join(f'{i:<3}' for i in range(1, self.cycles + 1)))
+        print('CPU Cycles ===>     ' + ''.join(f'{i:<4}' for i in range(1, self.cycles + 1)))
         for entry in self.history:
             print(entry)

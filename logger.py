@@ -16,6 +16,9 @@ class InstructionFetchEvent(LogEvent):
     def __init__(self, exId: ExId, cycle: int, node: Node):
         super().__init__(exId, cycle)
         self.node = node
+    
+    def __repr__(self):
+        return f'InstructionFetchEvent(exId={self.exId!r}, cycle={self.cycle!r}, node={self.node!r})'
 
 
 class StageAdvanceEvent(LogEvent):
@@ -23,6 +26,9 @@ class StageAdvanceEvent(LogEvent):
     def __init__(self, exId: ExId, cycle: int, stage: str):
         super().__init__(exId, cycle)
         self.stage = stage
+    
+    def __repr__(self):
+        return f'StageAdvanceEvent(exId={self.exId!r}, cycle={self.cycle!r}, stage={self.stage!r})'
 
 
 class PipelineStallEvent(LogEvent):
@@ -30,6 +36,9 @@ class PipelineStallEvent(LogEvent):
         super().__init__(exId, cycle)
         self.stage = stage
         self.stalls = stalls
+    
+    def __repr__(self):
+        return f'PipelineStallEvent(exId={self.exId}, cycle={self.cycle}, stage={self.stage!r}, stalls={self.stalls!r})'
 
 
 class PipelineExitEvent(LogEvent):
@@ -54,6 +63,7 @@ class LogEntry(object):
     
     def markCycle(self, cycle: int, name: str):
         offset = cycle - self.startCycle
+        # print(f'Mark cycle {cycle} ({self.startCycle} + {offset}) with {name}')
         if len(self.slots) <= offset:
             self.slots += [None] * (1 + len(self.slots) - offset)
         self.slots[offset] = name
@@ -61,7 +71,7 @@ class LogEntry(object):
     def __str__(self) -> str:
         if hasattr(self, '_strcache'):
             return self._strcache
-        result = f'{self.node!s:<20}'
+        result = f'{self.exId:<2}:{self.node!s:<20}'
         result += '.   ' * self.startCycle
         result += ''.join(f"{slot or '.':<4}" for slot in self.slots)
         result += '.   ' * (self.width - len(self.slots) - self.startCycle)
@@ -89,9 +99,11 @@ class Logger(object):
         for _ in range(count):
             self.history.insert(index, nop_entry)
         self.current[nop_entry.exId] = nop_entry
+        self.cycleMissed.add(nop_entry)
 
     def update(self, event: LogEvent) -> None:
         """Apply effects of event."""
+        print(event)
         if isinstance(event, InstructionFetchEvent):
             entry = LogEntry(event.exId, event.node, event.cycle, self.cycles)
             entry.markCycle(event.cycle, 'IF')
@@ -113,8 +125,9 @@ class Logger(object):
         elif isinstance(event, EndOfCycleEvent):
             # Fill asterisk for stages missed
             for entry in self.cycleMissed:
-                if entry.startCycle <= event.cycle - 5:
+                if entry.node.inst != MIPSInstruction.NOP or entry.startCycle <= event.cycle - 4:
                     self.current.pop(entry.exId)
+                print(f'mark entry {entry.exId}')
                 entry.markCycle(event.cycle, '*')
             self.cycleMissed = set(self.current.values())
         else:

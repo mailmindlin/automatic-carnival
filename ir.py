@@ -3,8 +3,9 @@
 from enum import Enum, IntEnum
 from typing import Optional
 
-#enumerate registers
+
 class MIPSRegister(IntEnum):
+    #enumerate registers
     ZERO = 0
     AT = 1
     V0 = 2
@@ -41,10 +42,11 @@ class MIPSRegister(IntEnum):
     PC = 64
 
     def __str__(self) -> str:
+        #return mapped string
         return '$' + self.name.lower()
 
-#enumerate instructions
 class MIPSInstruction(Enum):
+    #enumerate instructions
     NOP  = 0
     ADD  = 1
     AND  = 2
@@ -73,12 +75,12 @@ class MIPSInstruction(Enum):
         return self in (MIPSInstruction.BEQ, MIPSInstruction.BNE)
 
     def __str__(self):
+        #return mapped string
         return self.name.lower()
 
-#MIPS instruction container class
 class Node(object):
     """
-    MIPS instruction IR
+    MIPS instruction container class
     """
     def __init__(
             self,
@@ -101,8 +103,8 @@ class Node(object):
         self.immediate = immediate
         self.target = target
     
-    #return instruction as a string (formatted for output)
     def _asText(self) -> str:
+        #return instruction as a string (formatted for output)
         inst = self.inst
         if inst == MIPSInstruction.NOP:
             return 'nop'
@@ -115,15 +117,14 @@ class Node(object):
         else:
             raise ValueError(f'Unexpected instruction {inst}')
 
-    #formatted string representation
     def __str__(self):
-        """Reconstruct assembly text"""
+        #formatted string representation
         if self.text is None:
             self.text = self._asText()
         return self.text
 
-    #unformatted string representation
     def __repr__(self):
+        #unformatted string representation
         args = []
         if self.text is not None:
             args.append(f'text={self.text!r}')

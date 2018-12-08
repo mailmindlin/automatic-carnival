@@ -77,8 +77,8 @@ class LogEntry(object):
         result += '.   ' * (self.width - len(self.slots) - self.startCycle)
         return result
 
-
 class Logger(object):
+    #log the state of the CPU each cycle
     def __init__(self, cycles: int):
         self.cycles = cycles
         self.history: List[LogEntry] = []

@@ -66,6 +66,7 @@ class Logger(object):
         self.cycles = cycles
         self.history: List[LogEntry] = []
         self.current: Dict[ExId, LogEntry] = {}
+        self.cycleMissed = set()
 
     def update(self, event: LogEvent) -> None:
         """Apply effects of event."""
@@ -76,11 +77,19 @@ class Logger(object):
             self.current[event.exId] = entry
         elif isinstance(event, StageAdvanceEvent):
             entry = self.current[event.exId]
-            entry.markCycle(event.cycle, "???")
+            self.cycleMissed.discard(entry)
+            entry.markCycle(event.cycle, event.stage)
         elif isinstance(event, PipelineStallEvent):
             entry = self.current[event.exId]
-        elif isinstance(event, PipelineExitEvent):
-            entry = self.current.pop(event.exId)
+            self.cycleMissed.discard(entry)
+            print("PIPELINE STALL")
+        elif isinstance(event, EndOfCycleEvent):
+            # Fill asterisk for stages missed
+            for entry in self.cycleMissed:
+                if entry.startCycle <= event.cycle - 5:
+                    self.current.pop(entry.exId)
+                entry.markCycle(event.cycle, '*')
+            self.cycleMissed = set(self.current.values())
         else:
             raise ValueError("Unknown event type")
     

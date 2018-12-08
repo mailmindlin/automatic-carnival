@@ -47,6 +47,8 @@ def main(forwarding: bool, srcFile: str) -> None:
             logger.update(event)
         printState(cpu, logger)
         i += 1
+    print('-' * 82)
+    print("END OF SIMULATION")
 
 
 if __name__ == '__main__':

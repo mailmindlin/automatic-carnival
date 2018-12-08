@@ -78,6 +78,17 @@ class Logger(object):
     
     def lookupIndex(self, entry: LogEntry) -> int:
         return len(self.history) - self.history[::-1].index(entry) - 1
+    
+    def insertNop(self, entry: LogEntry, count: int):
+        index = self.lookupIndex(entry)
+        node = Node(text='nop', inst=MIPSInstruction.NOP, rs=None)
+        nop_entry = LogEntry(self.fakeExId, node, entry.startCycle, self.cycles)
+        self.fakeExId -= 1
+        nop_entry.markCycle(entry.startCycle, "IF")
+        nop_entry.markCycle(entry.startCycle + 1, "ID")
+        for _ in range(count):
+            self.history.insert(index, nop_entry)
+        self.current[nop_entry.exId] = nop_entry
 
     def update(self, event: LogEvent) -> None:
         """Apply effects of event."""
@@ -95,15 +106,7 @@ class Logger(object):
             self.cycleMissed.discard(entry)
             entry.markCycle(event.cycle, event.stage)
             if event.stalls > 0:
-                index = self.lookupIndex(entry)
-                node = Node(text='nop', inst=MIPSInstruction.NOP, rs=None)
-                nop_entry = LogEntry(self.fakeExId, node, entry.startCycle, self.cycles)
-                self.fakeExId -= 1
-                nop_entry.markCycle(entry.startCycle, "IF")
-                nop_entry.markCycle(entry.startCycle + 1, "ID")
-                for _ in range(event.stalls):
-                    self.history.insert(index, nop_entry)
-                self.current[nop_entry.exId] = nop_entry
+                self.insertNop(entry, event.stalls)
         elif isinstance(event, PipelineExitEvent):
             entry = self.current.pop(event.exId)
             self.cycleMissed.discard(entry)

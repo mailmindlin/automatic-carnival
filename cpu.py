@@ -134,6 +134,7 @@ class CPU(object):
         yield InstructionFetchEvent(exId, self.currentCycle, node)
     
     def _applyID(self) -> Iterable[LogEvent]:
+        """Apply the ID stage, and get all generated events."""
         context = self.pipeline_id
         if context is None:
             # ID empty
@@ -171,6 +172,22 @@ class CPU(object):
         self.pipeline_ex = IDContext(context, rsValue=rsValue, rtValue=rtValue, rdTarget=rdTarget)
     
     def _getExRegister(self, reg: MIPSRegister) -> Tuple[int, int]:
+        """
+        Get register value & cycle availability.
+        This method is only guarunteed to return valid things for calls from the EX stage.
+
+        Parameters
+        ----------
+        reg
+            Register to fetch
+
+        Returns
+        --------
+        int
+            First cycle the register is available
+        int
+            Register value
+        """
         available = self.registerContention.get(reg, 0)
         value = self.registers.get(reg, 0)
         if available <= self.currentCycle:
@@ -184,10 +201,16 @@ class CPU(object):
     
     def _getExInputs(self, node: Node) -> Tuple[int, int, int]:
         """
-        Get EX inputs & delay
+        Get EX inputs & availability
+        Parameters:
+        ----------
+        
         Returns:
-            available (cycles)
+        int
+            First cycle that rs and rt are available
+        int
             rs value
+        int
             rt value
         """
         inst = node.inst

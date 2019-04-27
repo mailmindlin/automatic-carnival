@@ -4,6 +4,8 @@ from ir import Node, MIPSInstruction
 
 ExId = NewType('ExId', int)
 
+PRINT_EVENTS = False
+
 
 class LogEvent(object):
     """Base log event type."""
@@ -185,31 +187,44 @@ class Logger(object):
         """Apply effects of event."""
         if isinstance(event, InstructionFetchEvent):
             entry = LogEntry(event.exId, event.node, event.cycle, self.cycles)
+            if PRINT_EVENTS:
+                print(f'Instruction fetch {event.exId}')
             entry.markCycle(event.cycle, 'IF')
             self.history.append(entry)
             self.current[event.exId] = entry
         elif isinstance(event, StageAdvanceEvent):
+            if PRINT_EVENTS:
+                print(f'Stage advance {event.exId} to {event.stage}')
             entry = self.current[event.exId]
             self.cycleMissed.discard(entry)
             entry.markCycle(event.cycle, event.stage)
         elif isinstance(event, PipelineStallEvent):
-            entry = self.current[event.exId]
+            entry: LogEntry = self.current[event.exId]
+            if PRINT_EVENTS:
+                print(f'Pipeline stall {event.exId} ({entry.node}) with stage {event.stage}')
             self.cycleMissed.discard(entry)
             entry.markCycle(event.cycle, event.stage)
             if event.stalls > 0:
                 self.insertNop(entry, event.stalls)
         elif isinstance(event, PipelineExitEvent):
-            entry = self.current.pop(event.exId)
+            if PRINT_EVENTS:
+                print(f'Remove {event.exId} from pipeline')
+            entry: LogEntry = self.current.pop(event.exId)
             self.cycleMissed.discard(entry)
             entry.bake()
         elif isinstance(event, EndOfCycleEvent):
             # Fill asterisk for stages missed
+            if PRINT_EVENTS:
+                print(f'End of cycle {event.cycle}')
+            entry: LogEntry
             for entry in self.cycleMissed:
+                entry.markCycle(event.cycle, '*')
                 if entry.startCycle <= event.cycle - 4:
+                    #print(f'Bake {entry.exId}')
                     self.current.pop(entry.exId)
                     entry.bake()
-                print(f'mark entry {entry.exId}')
-                entry.markCycle(event.cycle, '*')
+                if PRINT_EVENTS:
+                    print(f'\tmark entry {entry.exId} on cycle {event.cycle}')
             self.cycleMissed = set(self.current.values())
         else:
             raise ValueError("Unknown event type")

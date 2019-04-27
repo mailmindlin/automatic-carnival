@@ -189,8 +189,8 @@ class CPU(object):
             # ID empty
             return
         if self.pipeline_ex is not None:
-            # ID blocked
-            yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
+            # ID blocked (EX filled)
+            yield PipelineStallEvent(context.exId, self.currentCycle, 'IF', 0)
             return
         
         node = context.node
@@ -363,7 +363,7 @@ class CPU(object):
 
         if self.pipeline_mem is not None:
             # EX blocked
-            yield PipelineStallEvent(context.exId, self.currentCycle, 'EX', 0)
+            yield PipelineStallEvent(context.exId, self.currentCycle, 'ID', 0)
             return
         
         if inst.isArithmetic or inst.isImmediate:
@@ -395,7 +395,7 @@ class CPU(object):
             return
         if self.pipeline_wb is not None:
             # MEM blocked
-            yield PipelineStallEvent(context.exId, self.currentCycle, 'MEM', 0)
+            yield PipelineStallEvent(context.exId, self.currentCycle, 'EX', 0)
             return
 
         # Complete MEM

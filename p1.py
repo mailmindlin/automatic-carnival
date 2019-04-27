@@ -27,7 +27,7 @@ def printState(cpu: CPU, logger: Logger) -> None:
     )
     cells = map(lambda reg: f'{reg!s} = {cpu.register(reg)}', regs)
     for row in grouped(4, cells):
-        print(''.join(f'{cell:<20}' for cell in row))
+        print(''.join(f'{cell:<20}' for cell in row).rstrip())
 
 
 def main(forwarding: bool, srcFile: str) -> None:
@@ -35,7 +35,6 @@ def main(forwarding: bool, srcFile: str) -> None:
         src = f.read()
     # Parse
     nodes = [node for node in Parser(src)]
-    print(nodes)
     # Run the thing
     cpu = CPU(nodes, forwarding=forwarding)
     logger = Logger(MAX_CYCLES)

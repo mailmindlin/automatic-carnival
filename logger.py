@@ -124,7 +124,7 @@ class LogEntry(object):
         result += '.   ' * self.startCycle
         result += ''.join(f"{slot or '.':<4}" for slot in self.slots)
         result += '.   ' * (self.width - len(self.slots) - self.startCycle)
-        return result
+        return result.rstrip()
 
 
 class Logger(object):
@@ -216,6 +216,6 @@ class Logger(object):
     
     def print(self) -> None:
         """Print pipeline state & history to stdout."""
-        print('CPU Cycles ===>     ' + ''.join(f'{i:<4}' for i in range(1, self.cycles + 1)))
+        print('CPU Cycles ===>     ' + ''.join(f'{i:<4}' for i in range(1, self.cycles + 1)).rstrip())
         for entry in self.history:
             print(entry)

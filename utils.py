@@ -15,7 +15,7 @@ def grouped(n: int, iter: Iterable[T]) -> Iterable[Iterable[T]]:
                 yield next(iter)
         except StopIteration:
             done = True
-            raise
+            return
     
     while not done:
         yield _slice()
